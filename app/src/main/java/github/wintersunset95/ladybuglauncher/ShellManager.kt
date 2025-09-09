@@ -1,49 +1,115 @@
 package github.wintersunset95.ladybuglauncher
 
+import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.widget.TextView
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import kotlin.concurrent.thread
 
 class ShellManager(private val outputTextView: TextView) {
     private val process: Process = Runtime.getRuntime().exec("sh")
-    private val outputReader = BufferedReader(InputStreamReader(process.inputStream))
-    private val errorReader = BufferedReader(InputStreamReader(process.errorStream))
     private val inputWriter = OutputStreamWriter(process.outputStream)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     init {
-        readOutput()
-        outputTextView.setText("\nType 'exit' to quit the shell.")
+        startReaderThread(process.inputStream, false)
+        startReaderThread(process.errorStream, true)
+
+        mainHandler.post({
+            outputTextView.append("Welcome to Ladybug Launcher!\n")
+            outputTextView.append("\nType 'help' for custom commands or 'exit' to quit the shell.")
+            updatePrompt()
+        })
     }
 
-    fun execute(command: String) {
-        try {
-            outputTextView.append("\n> $command")
-            inputWriter.write(command + "\n")
-            inputWriter.flush()
-            readOutput()
-        } catch (e: Exception) {
-            outputTextView.append("\nError: ${e.message}")
+    private fun startReaderThread(stream: java.io.InputStream, isError: Boolean) {
+        Thread {
+            val reader = BufferedReader(InputStreamReader(stream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                val finalLine = line
+                mainHandler.post({
+                    if (isError) {
+                        outputTextView.append("\n[Error]: $finalLine")
+                    } else {
+                        outputTextView.append("\n$finalLine")
+                    }
+                })
+            }
+        }.start()
+    }
+
+    private fun updatePrompt() {
+        thread {
+            val promptProcess = Runtime.getRuntime().exec("sh -c pwd")
+            val reader = BufferedReader(InputStreamReader(promptProcess.inputStream))
+            val prompt = reader.readLine()
+            reader.close()
+            promptProcess.waitFor()
+
+            mainHandler.post({
+                outputTextView.append("\n[$prompt]> ")
+            })
         }
     }
 
-   private fun readOutput() {
-       val output = StringBuilder()
-       while (outputReader.ready()) {
-           output.append(outputReader.readLine()).append("\n")
-       }
-       while (errorReader.ready()) {
-           output.append(errorReader.readLine()).append("\n")
-       }
-       if (output.isNotEmpty()) {
-           outputTextView.append("\n" + output.toString().trim())
-       }
-   }
+    fun execute(commandLine: String) {
+        if (commandLine.isEmpty()) {
+            mainHandler.post({
+                outputTextView.append("\n$ ")
+            })
+            return
+        }
 
-   fun destroy() {
-        inputWriter.close()
-        outputReader.close()
-        errorReader.close()
+        mainHandler.post({
+            outputTextView.append("\n$ $commandLine")
+        })
+
+        val parts = commandLine.split(" ", limit = 2)
+        val command = parts[0].lowercase()
+        val arg = if (parts.size > 1) parts[1] else ""
+
+        when (command) {
+            "help" -> {
+                mainHandler.post({
+                    outputTextView.append("\n- Custom Commands: help, launch [app]")
+                    outputTextView.append("\n- System Commands: ls, cd, etc.")
+                    outputTextView.append("\n- Type 'exit' to quit the shell.")
+                    updatePrompt()
+                })
+            }
+            "launch" -> {}
+            "exit" -> {}
+            else -> {
+                try {
+                    inputWriter.write(commandLine + "\n")
+                    inputWriter.flush()
+                    mainHandler.post({ updatePrompt() })
+                } catch (e: Exception) {
+                    mainHandler.post({
+                        outputTextView.append("\nError: ${e.message}")
+                        updatePrompt()
+                    })
+                }
+            }
+        }
+    }
+
+    fun destroy() {
+        try {
+            inputWriter.write("exit\n")
+            inputWriter.flush()
+        } catch (e: Exception) {
+
+        }
+
+        try {
+            inputWriter.close()
+        } catch (e: Exception) {}
+
         process.destroy()
     }
 }

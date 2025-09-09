@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#00000000"
+    tools:context=".MainActivity"
+    >
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        >
+        <TextView
+            android:id="@+id/output_text_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#ffffff"
+            android:padding="8dp"
+            android:fontFamily="monospace"
+            android:text="Welcome to Ladybug Launcher\nType 'help' for a list of available commands."
+        />
+    </ScrollView>
+    <EditText
+        android:id="@+id/input_edit_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#333"
+        android:textColor="#fff"
+        android:padding="8dp"
+        android:fontFamily="monospace"
+        android:hint="Type a command . . ."
+        android:imeOptions="actionSend"
+        android:inputType="text"
+        android:autofillHints="false"
+    />
+
+
+</LinearLayout>
